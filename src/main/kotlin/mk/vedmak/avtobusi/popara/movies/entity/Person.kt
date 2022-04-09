@@ -11,6 +11,6 @@ data class Person(
     @Id
     val name: String,
 
-    val born: Int?
+    val born: Int?,
 
 )

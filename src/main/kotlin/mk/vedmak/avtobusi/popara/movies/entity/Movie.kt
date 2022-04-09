@@ -11,10 +11,10 @@ data class Movie(
     @Property("tagline")
     val description: String?,
 
-//    @Relationship(type="ACTED_IN", direction = Relationship.Direction.INCOMING)
-//    val actors: Set<Actor> = HashSet(),
-//
-//    @Relationship(type="DIRECTED", direction = Relationship.Direction.INCOMING)
-//    val directors: Set<Person> = HashSet()
+    @Relationship(type="ACTED_IN", direction = Relationship.Direction.INCOMING)
+    val actors: Set<Actor> = HashSet(),
+
+    @Relationship(type="DIRECTED", direction = Relationship.Direction.INCOMING)
+    val directors: Set<Person> = HashSet()
 
 )
