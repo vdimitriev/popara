@@ -9,6 +9,9 @@ import org.springframework.data.neo4j.core.schema.Relationship
 data class Person(
 
     @Id
+    @GeneratedValue
+    val id: Long,
+
     val name: String,
 
     val born: Int?,

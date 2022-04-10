@@ -1,21 +1,18 @@
-//package mk.vedmak.avtobusi.popara.model
-//
-//import org.springframework.data.neo4j.core.schema.Id
-//import org.springframework.data.neo4j.core.schema.Node
-//
-//@Node
-//data class Journey(
-//
-//    @Id
-//    val id: Long,
-//
-//    val departure: Station,
-//
-//    val arrival: Station,
-//
-//    val trips: List<Trip>,
-//
-//    val stops: List<Stop>,
-////
-////    val stopWithTrips: List<Map<Stop, Trip>>
-//)
+package mk.vedmak.avtobusi.popara.model
+
+import org.springframework.data.neo4j.core.schema.Id
+import org.springframework.data.neo4j.core.schema.Node
+import org.springframework.data.neo4j.core.schema.Relationship
+
+@Node
+data class Journey(
+    @Id
+    val name: String?,
+    @Relationship("DEPARTS_AT")
+    val departure: Location,
+    @Relationship("ARRIVES_AT")
+    val arrival: Location,
+    @Relationship("CONTAINS")
+    val trips: List<Trip> = ArrayList(),
+    val description: String? = null
+)

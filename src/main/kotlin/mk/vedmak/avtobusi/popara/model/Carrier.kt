@@ -1,18 +1,20 @@
-//package mk.vedmak.avtobusi.popara.model
-//
-//import mk.vedmak.avtobusi.popara.movies.entity.Person
-//import org.springframework.data.neo4j.core.schema.Id
-//import org.springframework.data.neo4j.core.schema.Node
-//import org.springframework.data.neo4j.core.schema.Relationship
-//
-//@Node
-//data class Carrier(
-//
-//    @Id
-//    val id: Long,
-//
-//    val name: String,
-//
-//    @Relationship(type="OPERATED_BY", direction = Relationship.Direction.INCOMING)
-//    val lines: Set<Line> = HashSet()
-//)
+package mk.vedmak.avtobusi.popara.model
+
+import org.springframework.data.neo4j.core.schema.GeneratedValue
+import org.springframework.data.neo4j.core.schema.Id
+import org.springframework.data.neo4j.core.schema.Node
+import org.springframework.data.neo4j.core.schema.Relationship
+import org.springframework.data.neo4j.core.schema.Relationship.Direction.OUTGOING
+
+@Node
+data class Carrier(
+    @Id
+    val name: String?,
+    val location: Location?,
+    @Relationship(type="OPERATES", direction = OUTGOING)
+    val lines: MutableList<Line> = ArrayList(),
+    val latinName: String? = null,
+    val cyrillicName: String? = null,
+    val description: String? = null,
+    val descriptionCyrillic: String? = null,
+)
