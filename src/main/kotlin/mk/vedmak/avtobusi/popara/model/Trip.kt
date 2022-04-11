@@ -8,8 +8,9 @@ import org.springframework.data.neo4j.core.schema.Relationship
 data class Trip(
     @Id
     val name: String?,
-    val tripNumber: Int?,
     val lineNumber: Int?,
+    val journeyNumber: Int?,
+    val tripNumber: Int?,
     @Relationship("STOPS_AT")
     val stops: List<Stop>,
     val description: String? = null

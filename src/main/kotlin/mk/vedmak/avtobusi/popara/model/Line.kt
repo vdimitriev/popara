@@ -11,8 +11,10 @@ data class Line(
     val fullNameLatin: String?,
     val fullNameCyrillic: String?,
     val lineNumber: Int?,
+    @Relationship("PERFORMED_BY")
+    val carrier: Carrier?,
     @Relationship("PERFORMS")
-    val journey: Journey?,
+    var journeys: MutableList<Journey> = ArrayList(),
     @Relationship("FINDS_PERIOD_OF_WORK_AT")
     val schedule: Schedule?,
     val description: String? = null

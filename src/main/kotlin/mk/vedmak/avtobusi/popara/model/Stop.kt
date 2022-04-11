@@ -10,8 +10,7 @@ data class Stop(
     @Id
     val name: String?,
     val time: LocalTime?,
-    @Relationship("IS_LOCATED_AT")
-    val location: Location? = null,
+    val location: String? = null,
     val stopNumber: Int? = 0,
     val description: String? = null
 )

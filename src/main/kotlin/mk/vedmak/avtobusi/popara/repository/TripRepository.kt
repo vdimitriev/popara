@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 interface TripRepository: Neo4jRepository<Trip, String> {
 
-    @Query("MATCH (trp:Trip)-[ts]->(stp:Stop)-[sl]->(loc:Location) where loc.name in ['VE','SK'] RETURN distinct trp,ts,stp,sl,loc")
+    @Query("MATCH (trp:Trip)-[tl*]->(loc:Location) RETURN distinct trp")
     fun findByDepartureAndArrival(): List<Trip>
 
 //    @Query("MATCH (trp:Trip {name: 'TRA0101'}) -[*]-> (stp:Stop) RETURN trp")

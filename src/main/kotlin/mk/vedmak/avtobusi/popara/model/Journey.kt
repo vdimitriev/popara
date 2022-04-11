@@ -8,10 +8,12 @@ import org.springframework.data.neo4j.core.schema.Relationship
 data class Journey(
     @Id
     val name: String?,
-    @Relationship("DEPARTS_AT")
-    val departure: Location,
-    @Relationship("ARRIVES_AT")
-    val arrival: Location,
+    val lineNumber: Int?,
+    val journeyNumber: Int?,
+    val departure: String?,
+    val arrival: String?,
+    @Relationship("PART_OF")
+    val line: Line?,
     @Relationship("CONTAINS")
     val trips: List<Trip> = ArrayList(),
     val description: String? = null

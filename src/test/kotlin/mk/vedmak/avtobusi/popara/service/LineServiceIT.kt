@@ -18,8 +18,53 @@ class LineServiceIT {
     }
 
     @Test
+    fun findJourneys() {
+        lineService.findJourneys().forEach {
+            println(it)
+        }
+        assertTrue(true)
+    }
+
+    @Test
+    fun findJourneysForCarrier() {
+        lineService.findJourneysForCarrier().forEach {
+            println(it)
+        }
+        assertTrue(true)
+    }
+
+    @Test
+    fun findAllJourneys() {
+        val j = lineService.findAllJourneys()
+        j.forEach {
+            println(it)
+        }
+        assertTrue(true)
+    }
+
+    @Test
+    fun findAllJourneysForGivenDepartureAndArrival() {
+        lineService
+            .findAllJourneysForDepartureAndArrivalStation("BT", "OH")
+            .forEach {
+                println(it)
+            }
+        assertTrue(true)
+    }
+
+    @Test
+    fun findAllJourneysForGivenDeparture() {
+        lineService
+            .findAllJourneysForDepartureStation("BT")
+            .forEach {
+                println(it)
+            }
+        assertTrue(true)
+    }
+
+    @Test
     fun findAllTripsForGivenDepartureAndArrival() {
-        val trips = lineService.findAllTripsForDepartureAndArrivalStation("VE", "BT")
+        val trips = lineService.findAllTripsForDepartureAndArrivalStation("BT", "OH")
         trips.forEach { trip ->
             println(trip)
         }
