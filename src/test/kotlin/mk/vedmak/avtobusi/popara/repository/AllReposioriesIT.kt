@@ -30,22 +30,8 @@ class AllReposioriesIT {
     @Autowired
     private lateinit var locationRepository: LocationRepository
 
-//    @Test
-//    fun insertTripWithStops() {
-//        val bitola1315 = Stop(null, "Bitola", "13:15")
-//        val resen1405 = Stop(null, "Resen", "14:05")
-//        val skopje1458 = Stop(null, "Skopje", "14:58")
-//
-//
-//        val trip = Trip(null, 1, listOf(bitola1315, resen1405, skopje1458))
-//        tripRepository.save(trip)
-//
-//        tripRepository.findAll().forEach { println(it) }
-//        stopRepository.findAll().forEach { println(it) }
-//    }
-
-    //MATCH (j:Journey)-[c:CONTAINS]->(t:Trip)-[sa:STOPS_AT]->(s:Stop) MATCH (j:Journey)<-[p:PERFORMS]-(l:Line)<-[o:OPERATES]-(car:Carrier) where j.departure = 'BT' and j.arrival = 'OH' RETURN *
-    //MATCH (j:Journey)-[c:CONTAINS]->(t:Trip)-[sa:STOPS_AT]->(s:Stop) MATCH (j:Journey)<-[p:PERFORMS]-(l:Line)<-[o:OPERATES]-(car:Carrier) where j.departure = 'BT' and j.arrival = 'OH' RETURN car,o,l,p,j,c,t,sa,s
+    @Autowired
+    private lateinit var countryRepository: CountryRepository
 
     @Test
     fun deleteAllDataFromRepositories() {
@@ -59,7 +45,7 @@ class AllReposioriesIT {
         val bitola = Location("BT", "Bitola", "Битола", mkd, 1)
         val ohrid = Location("OH", "Ohrid", "Охрид", mkd, 1)
         val resen = Location("RE", "Resen", "Ресен",  mkd, 5)
-        val transkop = Carrier("TRA", bitola,  mutableListOf(), "Transkop", "Транскоп", "Transkop - Bitola", "Transkop - Bitola")
+        val transkop = Carrier("TRA", "BT",  mutableListOf(), "Transkop", "Транскоп", "Transkop - Bitola", "Transkop - Bitola")
 
         val bt1315 = Stop("SBT1315", LocalTime.of(13, 15), "BT", 1)
         val re1405 = Stop("SRE1405", LocalTime.of(14, 5), "RE", 2)
@@ -68,51 +54,31 @@ class AllReposioriesIT {
         val tra010101 = Trip("TRA01J01T01", 1, 1, 1, listOf(bt1315, re1405), "TRA01J01T01")
         val tra010201 = Trip("TRA01J02T01", 1, 2, 1, listOf(bt1315, re1405, oh1458), "TRA01J02T01")
         val tra010202 = Trip("TRA01J02T02", 1, 2, 2, listOf(
-            Stop("SBT1315", LocalTime.of(13, 15), "BT", 1),
-            Stop("SRE1405", LocalTime.of(14, 5), "RE", 2),
-            Stop("SOH1458", LocalTime.of(14, 58), "OH", 3)
+            Stop("SBT1415", LocalTime.of(14, 15), "BT", 1),
+            Stop("SRE1505", LocalTime.of(15, 5), "RE", 2),
+            Stop("SOH1558", LocalTime.of(15, 58), "OH", 3)
         ), "TRA01J02T02")
         val tra010301 = Trip("TRA01J03T01", 1, 3, 1, listOf(re1405, oh1458), "TRA01J03T01")
 
-        val tra01 = Line("TRA01", "Bitola - Ohrid", "Битола - Охрид",1, transkop, mutableListOf() , schedule)
+        val tra01 = Line("TRA01", "Bitola - Ohrid", "Битола - Охрид",1, mutableListOf() , schedule)
 
-        val tra01j01 = Journey("TRA01J01", 1, 1,"BT", "RE", tra01, listOf(tra010101))
-        val tra01j02 = Journey("TRA01J02", 1, 2,"BT", "OH", tra01, listOf(tra010201, tra010202))
-        val tra01j03 = Journey("TRA01J03", 1, 3,"RE", "OH", tra01, listOf(tra010301))
+        val tra01j01 = Journey("TRA01J01", 1, 1,"BT", "RE", listOf(tra010101))
+        val tra01j02 = Journey("TRA01J02", 1, 2,"BT", "OH", listOf(tra010201, tra010202))
+        val tra01j03 = Journey("TRA01J03", 1, 3,"RE", "OH", listOf(tra010301))
 
-//        tra01.journeys = mutableListOf(tra01j01, tra01j02, tra01j03)
-//        transkop.lines.add(tra01)
-//
-//        carrierRepository.save(transkop)
+        tra01.journeys?.add(tra01j01)
+        tra01.journeys?.add(tra01j02)
+        tra01.journeys?.add(tra01j03)
 
-        journeyRepository.save(tra01j01)
-        journeyRepository.save(tra01j02)
-        journeyRepository.save(tra01j03)
+        transkop.lines?.add(tra01)
+
+        carrierRepository.save(transkop)
 
         println("================================================================================================")
-        lineRepository.findAll().forEach {
+        carrierRepository.findAll().forEach {
             println("bus line: $it")
             println("================================================================================================")
         }
-
-    }
-
-    private fun insertMinimalSetOfData() {
-        insertCountry()
-        insertSchedule()
-        insertLocations()
-    }
-
-    private fun insertLocations() {
-        TODO("Not yet implemented")
-    }
-
-    private fun insertSchedule() {
-        TODO("Not yet implemented")
-    }
-
-    private fun insertCountry() {
-        TODO("Not yet implemented")
     }
 
 //    @Test
@@ -252,6 +218,7 @@ class AllReposioriesIT {
 
     private fun deleteAll() {
         scheduleRepository.deleteAll()
+        countryRepository.deleteAll()
         stopRepository.deleteAll()
         locationRepository.deleteAll()
         tripRepository.deleteAll()

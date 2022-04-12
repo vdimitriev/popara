@@ -7,10 +7,16 @@ import java.time.LocalTime
 
 @Node
 data class Stop(
+
     @Id
     val name: String?,
+
     val time: LocalTime?,
+
     val location: String? = null,
+
     val stopNumber: Int? = 0,
+
     val description: String? = null
+
 )
