@@ -11,16 +11,22 @@ data class Carrier(
     @Id
     val name: String?,
 
-    val location: String?,
+    val carrierNumber: Int? = 0,
+
+    val location: String? = null,
 
     @Relationship(type="OPERATES", direction = OUTGOING)
     val lines: MutableList<Line>? = null,
+
+    val lineCount: Int? = 0,
 
     val latinName: String? = null,
 
     val cyrillicName: String? = null,
 
     val description: String? = null,
+
+    val descriptionLatin: String? = null,
 
     val descriptionCyrillic: String? = null,
 )

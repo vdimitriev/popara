@@ -13,8 +13,6 @@ data class Country(
 
     val cyrillicName: String? = null,
 
-    val countryCode: String? = null,
-
     val twoLetterCountryCode: String? = null,
 
     val threeLetterCountryCode: String? = null,

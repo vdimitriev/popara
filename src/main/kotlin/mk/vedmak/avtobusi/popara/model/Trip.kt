@@ -20,6 +20,9 @@ data class Trip(
     @Relationship("STOPS", direction = OUTGOING)
     val stops: List<Stop>? = null,
 
+    @Relationship("MAINTAINS", direction = OUTGOING)
+    val schedule: Schedule? = null,
+
     val description: String? = null
 
 )

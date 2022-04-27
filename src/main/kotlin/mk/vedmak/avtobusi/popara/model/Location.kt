@@ -2,6 +2,8 @@ package mk.vedmak.avtobusi.popara.model
 
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
+import org.springframework.data.neo4j.core.schema.Relationship
+import org.springframework.data.neo4j.core.schema.Relationship.Direction.OUTGOING
 
 @Node
 data class Location(
@@ -13,6 +15,7 @@ data class Location(
 
     val cyrillicName: String?,
 
+    @Relationship("SITUATED", direction = OUTGOING)
     val country: Country? = null,
 
     val category: Int? = 0,

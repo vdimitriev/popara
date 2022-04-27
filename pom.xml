@@ -41,7 +41,18 @@
             <artifactId>kotlin-stdlib-jdk8</artifactId>
         </dependency>
 
-<!--        <dependency>-->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+
+        <!--        <dependency>-->
 <!--            <groupId>org.neo4j</groupId>-->
 <!--            <artifactId>neo4j-ogm-embedded-driver</artifactId>-->
 <!--            <version>3.2.32</version>-->

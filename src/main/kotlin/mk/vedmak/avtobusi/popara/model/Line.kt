@@ -20,9 +20,9 @@ data class Line(
     @Relationship("PERFORMS", direction = OUTGOING)
     val journeys: MutableList<Journey>? = null,
 
-    @Relationship("MAINTAINS", direction = OUTGOING)
-    val schedule: Schedule? = null,
+    val description: String? = null,
 
-    val description: String? = null
+    val descriptionLatin: String? = null,
 
+    val descriptionCyrillic: String? = null,
 )
