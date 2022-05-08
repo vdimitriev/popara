@@ -10,14 +10,18 @@ import java.time.LocalTime
 data class Stop(
 
     @Id
-    val name: String?,
+    val name: String,
 
     val time: LocalTime?,
 
-    val location: String? = null,
+    val location: String,
 
     val stopNumber: Int? = 0,
 
     val description: String? = null
 
-)
+) {
+    override fun toString(): String {
+        return "$name"
+    }
+}

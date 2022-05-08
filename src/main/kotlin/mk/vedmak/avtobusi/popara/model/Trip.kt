@@ -9,20 +9,24 @@ import org.springframework.data.neo4j.core.schema.Relationship.Direction.OUTGOIN
 data class Trip(
 
     @Id
-    val name: String?,
+    val name: String,
 
-    val lineNumber: Int?,
+    val lineNumber: Int = 0,
 
-    val journeyNumber: Int?,
+    val journeyNumber: Int = 0,
 
-    val tripNumber: Int?,
+    val tripNumber: Int = 0,
 
     @Relationship("STOPS", direction = OUTGOING)
-    val stops: List<Stop>? = null,
+    var stops: MutableList<Stop> = ArrayList(),
 
     @Relationship("MAINTAINS", direction = OUTGOING)
-    val schedule: Schedule? = null,
+    val schedules: List<Schedule> = ArrayList(),
 
     val description: String? = null
 
-)
+) {
+    override fun toString(): String {
+        return "$name"
+    }
+}

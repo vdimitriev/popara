@@ -9,18 +9,33 @@ import org.springframework.data.neo4j.core.schema.Relationship.Direction.OUTGOIN
 data class Journey(
 
     @Id
-    val name: String?,
+    val name: String,
 
-    val lineNumber: Int?,
+    val carrierName: String,
 
-    val journeyNumber: Int?,
+    val lineNumber: Int,
 
-    val departure: String?,
+    var journeyNumber: Int?,
 
-    val arrival: String?,
+    val departure: String,
+
+    val arrival: String,
 
     @Relationship("CONTAINS", direction = OUTGOING)
-    val trips: List<Trip>? = null,
+    var trips: MutableSet<Trip> = HashSet(),
 
-    val description: String? = null
-)
+    val description: String? = null,
+
+    @Relationship("MAINTAINS", direction = OUTGOING)
+    var schedules: List<Schedule> = ArrayList(),
+
+    ) {
+
+    override fun equals(other: Any?): Boolean = other is Journey && other.carrierName == carrierName && other.lineNumber == lineNumber && other.departure == departure && other.arrival == arrival
+
+    override fun hashCode(): Int = carrierName.hashCode() + lineNumber.hashCode() + departure.hashCode() + arrival.hashCode()
+
+    override fun toString(): String {
+        return "$name - $trips"
+    }
+}

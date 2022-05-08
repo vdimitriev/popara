@@ -7,18 +7,22 @@ import org.springframework.data.neo4j.core.schema.Node
 data class Schedule(
 
     @Id
-    val name: String? = null,
+    var name: String = "",
 
-    val workDays: List<Int>? = null,
+    var workDays: List<Int> = ArrayList(),
 
-    val workPeriod: String? = "",
+    var workPeriods: List<Period> = ArrayList(),
 
-    val workMonths: List<Int>? = null,
+    var workMonths: List<Int> = ArrayList(),
 
-    val description: String? = "",
+    var holidays: Boolean = true,
 
-    val descriptionLatin: String? = "",
+    var description: String = "",
 
-    val descriptionCyrillic: String? = ""
+    var descriptionLatin: String = "",
+
+    var descriptionCyrillic: String = "",
+
+    var tripNumbers: String = ""
 
 )

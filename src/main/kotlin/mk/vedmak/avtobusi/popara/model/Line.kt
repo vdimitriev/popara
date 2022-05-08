@@ -15,14 +15,18 @@ data class Line(
 
     val fullNameCyrillic: String?,
 
-    val lineNumber: Int?,
+    val lineNumber: Int,
 
     @Relationship("PERFORMS", direction = OUTGOING)
-    val journeys: MutableList<Journey>? = null,
+    var journeys: MutableSet<Journey> = HashSet(),
 
     val description: String? = null,
 
     val descriptionLatin: String? = null,
 
     val descriptionCyrillic: String? = null,
-)
+) {
+    override fun toString(): String {
+        return "$name - $journeys"
+    }
+}

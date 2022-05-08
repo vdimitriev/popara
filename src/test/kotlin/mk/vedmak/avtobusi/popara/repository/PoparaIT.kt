@@ -28,6 +28,9 @@
 //    private lateinit var scheduleRepository: ScheduleRepository
 //
 //    @Autowired
+//    private lateinit var periodRepository: PeriodRepository
+//
+//    @Autowired
 //    private lateinit var locationRepository: LocationRepository
 //
 //    @Autowired
@@ -38,49 +41,48 @@
 //        deleteAll()
 //    }
 //
-//
-//    @Test
-//    fun insertSmallAmountOfData() {
-//        val mkd = Country("MKD", "Macedonia", "Македонија", "MK", "MKD")
-//        val schedule = Schedule("P1", listOf(1,2,3,4,5,6,7), "01/01-31/12", listOf(1,2,3,4,5,6,7,8,9,10,11,12),"Sekojdnevno", "Sekojdnevno", "Секојдневно")
-//        val bitola = Location("BT", "Bitola", "Битола", mkd, 1)
-//        val ohrid = Location("OH", "Ohrid", "Охрид", mkd, 1)
-//        val resen = Location("RE", "Resen", "Ресен",  mkd, 5)
-//        val transkop = Carrier("TR", 1, "BT",  mutableListOf(), 40, "Transkop", "Транскоп", "Transkop - Bitola", "Transkop - Bitola")
-//
-//        val bt1315 = Stop("SBT1315", LocalTime.of(13, 15), "BT", 1)
-//        val re1405 = Stop("SRE1405", LocalTime.of(14, 5), "RE", 2)
-//        val oh1458 = Stop("SOH1458", LocalTime.of(14, 58), "OH", 3)
-//
-//        val tra010101 = Trip("TRA01J01T01", 1, 1, 1, listOf(bt1315, re1405), schedule, "TRA01J01T01")
-//        val tra010201 = Trip("TRA01J02T01", 1, 2, 1, listOf(bt1315, re1405, oh1458), schedule, "TRA01J02T01")
-//        val tra010202 = Trip("TRA01J02T02", 1, 2, 2, listOf(
-//            Stop("SBT1415", LocalTime.of(14, 15), "BT", 1),
-//            Stop("SRE1505", LocalTime.of(15, 5), "RE", 2),
-//            Stop("SOH1558", LocalTime.of(15, 58), "OH", 3)
-//        ), schedule, "TRA01J02T02")
-//        val tra010301 = Trip("TRA01J03T01", 1, 3, 1, listOf(re1405, oh1458), schedule, "TRA01J03T01")
-//
-//        val tra01 = Line("TRA01", "Bitola - Ohrid", "Битола - Охрид",1, mutableListOf())
-//
-//        val tra01j01 = Journey("TRA01J01", 1, 1,"BT", "RE", listOf(tra010101))
-//        val tra01j02 = Journey("TRA01J02", 1, 2,"BT", "OH", listOf(tra010201, tra010202))
-//        val tra01j03 = Journey("TRA01J03", 1, 3,"RE", "OH", listOf(tra010301))
-//
-//        tra01.journeys?.add(tra01j01)
-//        tra01.journeys?.add(tra01j02)
-//        tra01.journeys?.add(tra01j03)
-//
-//        transkop.lines?.add(tra01)
-//
-//        carrierRepository.save(transkop)
-//
-//        println("================================================================================================")
-//        carrierRepository.findAll().forEach {
-//            println("bus line: $it")
-//            println("================================================================================================")
-//        }
-//    }
+////    @Test
+////    fun insertSmallAmountOfData() {
+////        val mkd = Country("MKD", "Macedonia", "Македонија", "MK", "MKD")
+////        val schedule = Schedule("P1", listOf(1,2,3,4,5,6,7), listOf(), listOf(1,2,3,4,5,6,7,8,9,10,11,12),true, "Sekojdnevno", "Sekojdnevno", "Секојдневно")
+////        val bitola = Location("BT", "Bitola", "Битола", mkd, 1)
+////        val ohrid = Location("OH", "Ohrid", "Охрид", mkd, 1)
+////        val resen = Location("RE", "Resen", "Ресен",  mkd, 5)
+////        val transkop = Carrier("TR", 1, "BT",  mutableListOf(), 40, "Transkop", "Транскоп", "Transkop - Bitola", "Transkop - Bitola")
+////
+////        val bt1315 = Stop("SBT1315", LocalTime.of(13, 15), "BT", 1)
+////        val re1405 = Stop("SRE1405", LocalTime.of(14, 5), "RE", 2)
+////        val oh1458 = Stop("SOH1458", LocalTime.of(14, 58), "OH", 3)
+////
+////        val tra010101 = Trip("TRA01J01T01", 1, 1, 1, mutableListOf(bt1315, re1405), listOf(schedule), "TRA01J01T01")
+////        val tra010201 = Trip("TRA01J02T01", 1, 2, 1, mutableListOf(bt1315, re1405, oh1458), listOf(schedule), "TRA01J02T01")
+////        val tra010202 = Trip("TRA01J02T02", 1, 2, 2, mutableListOf(
+////            Stop("SBT1415", LocalTime.of(14, 15), "BT", 1),
+////            Stop("SRE1505", LocalTime.of(15, 5), "RE", 2),
+////            Stop("SOH1558", LocalTime.of(15, 58), "OH", 3)
+////        ), listOf(schedule), "TRA01J02T02")
+////        val tra010301 = Trip("TRA01J03T01", 1, 3, 1, mutableListOf(re1405, oh1458), listOf(schedule), "TRA01J03T01")
+////
+////        val tra01 = Line("TRA01", "Bitola - Ohrid", "Битола - Охрид",1, mutableSetOf())
+////
+////        val tra01j01 = Journey("TRA01J01", "TRA",1, 1,"BT", "RE", mutableSetOf(tra010101))
+////        val tra01j02 = Journey("TRA01J02", "TRA",1, 2,"BT", "OH", mutableSetOf(tra010201, tra010202))
+////        val tra01j03 = Journey("TRA01J03", "TRA",1, 3,"RE", "OH", mutableSetOf(tra010301))
+////
+////        tra01.journeys?.add(tra01j01)
+////        tra01.journeys?.add(tra01j02)
+////        tra01.journeys?.add(tra01j03)
+////
+////        transkop.lines?.add(tra01)
+////
+////        carrierRepository.save(transkop)
+////
+////        println("================================================================================================")
+////        carrierRepository.findAll().forEach {
+////            println("bus line: $it")
+////            println("================================================================================================")
+////        }
+////    }
 //
 ////    fun insertLocationsAndCarriers() {
 ////        val mkd = Country("MKD", "Macedonia", "Македонија", "MK", "MKD")
@@ -308,6 +310,7 @@
 ////    }
 //
 //    private fun deleteAll() {
+//        periodRepository.deleteAll()
 //        scheduleRepository.deleteAll()
 //        countryRepository.deleteAll()
 //        stopRepository.deleteAll()
