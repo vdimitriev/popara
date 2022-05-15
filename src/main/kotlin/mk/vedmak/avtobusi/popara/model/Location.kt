@@ -1,5 +1,6 @@
 package mk.vedmak.avtobusi.popara.model
 
+import org.springframework.data.annotation.Version
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
 import org.springframework.data.neo4j.core.schema.Relationship
@@ -21,4 +22,8 @@ data class Location(
     val category: Int? = 0,
 
     val description: String? = null,
-)
+
+    @Version
+    val version: Long = 0,
+
+    )

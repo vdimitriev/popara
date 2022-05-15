@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ActiveProfiles
 import java.io.File
 import java.time.LocalTime
 
@@ -23,8 +22,8 @@ class AvtobuskiLiniiTest() {
     private lateinit var carrierRepository: CarrierRepository
 
     @Test
-    fun readXlsFile() {
-        val pathname = "files/avtobuski-linii-nice.xls"
+    fun readXlsFileAndPersistBusLines() {
+        val pathname = "files/avtobuski-linii-test.xls"
         println("start reading file $pathname")
         var rows = ArrayList<Row>()
         val workBook = WorkbookFactory.create(File(pathname))
@@ -49,8 +48,8 @@ class AvtobuskiLiniiTest() {
                     firstCell = null
                     extractAllLinesForCarrier(rows, carrier)
                     rows = ArrayList()
-                    saveCarrier(carrier)
-                    //printCarrier(carrier)
+                    printCarrier(carrier)
+                    //saveCarrier(carrier)
                 }
             }
         }
@@ -75,30 +74,36 @@ class AvtobuskiLiniiTest() {
         println(carrier.name)
         println("----------------------------------------")
         println("${carrier.name} lines count = ${carrier.lines.size}")
-        carrier.lines.forEach {
-            println("----------------------------------------")
-            println("${carrier.name} - ${it.name} journeys count = ${it.journeys.size}")
-//            if(it.name == "TRA006") {
-//                it.journeys.forEach { j -> println("${j.name} trip size = ${j.trips.size}") }
-//            }
-            println("----------------------------------------")
-        }
-
-        println("----------------------------------------")
+//        carrier.lines.forEach {
+//            println("----------------------------------------")
+//            println("${carrier.name} - ${it.name} journeys count = ${it.journeys.size}")
+////            if(it.name == "TRA006") {
+////                it.journeys.forEach { j -> println("${j.name} trip size = ${j.trips.size}") }
+////            }
+//            println("----------------------------------------")
+//        }
+//
+//        println("----------------------------------------")
 //        carrier.lines.forEach {line ->
 //            line.journeys.forEach {
 //                println(it)
 //            }
 //        }
 //        println("----------------------------------------")
-//        carrier.lines.forEach {line ->
-//            line.journeys.forEach {journey ->
-//                journey.trips.forEach {
-//                    println(it)
-//                }
-//            }
-//        }
-//        println("----------------------------------------")
+        carrier.lines.forEach {line ->
+            line.journeys.forEach {journey ->
+                println(journey)
+            }
+        }
+        println("----------------------------------------")
+        carrier.lines.forEach {line ->
+            line.journeys.forEach {journey ->
+                journey.trips.forEach {trip ->
+                    println(trip)
+                }
+            }
+        }
+        println("========================================")
 //        carrier.lines.forEach {line ->
 //            line.journeys.forEach {journey ->
 //                journey.trips.forEach {trip ->
@@ -108,7 +113,7 @@ class AvtobuskiLiniiTest() {
 //                }
 //            }
 //        }
-        println("========================================")
+//        println("========================================")
     }
 
 
@@ -136,9 +141,11 @@ class AvtobuskiLiniiTest() {
         val lineNumber = rows[0].getCell(2).numericCellValue.toInt()
         val lineName = rows[0].getCell(3).stringCellValue
         val line = Line(createLineName(carrier.name, lineNumber), lineName, lineName, lineNumber, mutableSetOf())
+        println("extract line ${line.name}")
 
         extractOneWay(rows, carrier.name, line)
         extractReturn(rows, carrier.name, line)
+        println("extracted line ${line.name}")
         carrier.lines.add(line)
     }
 
@@ -174,12 +181,14 @@ class AvtobuskiLiniiTest() {
                 val scheduleCell = rows[i].getCell(28).toString()
                 val scheduleDescriptionCell = rows[i].getCell(30).toString()
                 val firstStop = createBusStop(departureLocationName, departureTime)
+                val distanceDeparture = getIntFromCell(rows[i].getCell(16))
                 val stops = mutableListOf<Stop>()
                 if(firstStop != null) stops.add(firstStop)
                 var lastStop = firstStop
                 for (j in (i + 1) until rowsSize) {
                     val arrivalLocationName = rows[j].getCell(17).stringCellValue
                     val arrivalTime = rows[j].getCell(6 + jco).toString()
+                    val distanceArrival = getIntFromCell(rows[j].getCell(16))
                     val stop = createBusStop(arrivalLocationName, arrivalTime)
                     if(stop != null) stops.add(stop)
                     trip.stops = stops
@@ -193,7 +202,8 @@ class AvtobuskiLiniiTest() {
                             lastStop,
                             journeys,
                             journeyNumber,
-                            journeyPrefix
+                            journeyPrefix,
+                            distanceArrival - distanceDeparture,
                         )
                         journeyNumber = journey.journeyNumber ?: 0
 
@@ -207,7 +217,9 @@ class AvtobuskiLiniiTest() {
                                 journeyNumber,
                                 tripNumber,
                                 journeyPrefix,
-                                schedules
+                                schedules,
+                                firstStop.time,
+                                lastStop.time
                             )
                         )
                         journey.schedules =
@@ -251,6 +263,7 @@ class AvtobuskiLiniiTest() {
                 val departureTime = rows[k].getCell(18 + jcr).toString()
                 val scheduleCell = rows[k].getCell(29).toString()
                 val scheduleDescriptionCell = rows[k].getCell(30).toString()
+                val distanceDeparture = getIntFromCell(rows[k].getCell(16))
                 val firstStop = createBusStop(departureLocationName, departureTime)
                 val stops = mutableListOf<Stop>()
                 if(firstStop != null) stops.add(firstStop)
@@ -258,6 +271,7 @@ class AvtobuskiLiniiTest() {
                 for (l in (k - 1) downTo 0) {
                     val arrivalLocationName = rows[l].getCell(17).stringCellValue
                     val arrivalTime = rows[l].getCell(18 + jcr).toString()
+                    val distanceArrival = getIntFromCell(rows[l].getCell(16))
                     val stop = createBusStop(arrivalLocationName, arrivalTime)
                     if(stop != null) stops.add(stop)
                     trip.stops = stops
@@ -270,7 +284,8 @@ class AvtobuskiLiniiTest() {
                             lastStop,
                             journeys,
                             journeyNumber,
-                            journeyPrefix
+                            journeyPrefix,
+                            distanceDeparture - distanceArrival,
                         )
                         val schedules =
                             createSchedulesForTrip(scheduleCell, scheduleDescriptionCell, tripNumber, journey.name)
@@ -283,7 +298,9 @@ class AvtobuskiLiniiTest() {
                                 journeyNumber,
                                 tripNumber,
                                 journeyPrefix,
-                                schedules
+                                schedules,
+                                firstStop.time,
+                                lastStop.time
                             )
                         )
                         journey.schedules =
@@ -302,11 +319,20 @@ class AvtobuskiLiniiTest() {
         lastStop: Stop,
         journeys: MutableSet<Journey>,
         journeyNumber: Int,
-        journeyPrefix: String
+        journeyPrefix: String,
+        distance: Int,
     ):Journey {
         val jn = journeyNumber + 1
         val journey = Journey(createJourneyName(carrier, lineNumber, jn, journeyPrefix), carrier, lineNumber, jn, firstStop.location, lastStop.location)
+        journey.distance = distance
         return journeys.singleOrNull { it == journey } ?: journey
+    }
+
+    private fun calculateTravelTime(departureTime: LocalTime?, arrivalTime: LocalTime?): String {
+        if(arrivalTime == null) return ""
+        if(departureTime == null) return ""
+        val rlt = arrivalTime.minusHours(departureTime.hour.toLong()).minusMinutes(departureTime.minute.toLong())
+        return rlt.toString()
     }
 
     private fun makenewtrip(
@@ -316,12 +342,17 @@ class AvtobuskiLiniiTest() {
         journeyNumber: Int,
         tripNumber: Int,
         journeyPrefix: String,
-        schedules:List<Schedule>
-    ): Trip {
+        schedules:List<Schedule>,
+        departureTime: LocalTime?,
+        arrivalTime: LocalTime?,
+        ): Trip {
+
         val newstops = ArrayList<Stop>()
         trip.stops.forEach { newstops.add(it) }
+        val travelTime = calculateTravelTime(departureTime, arrivalTime)
         val tripName = makeTripName(carrier, lineNumber, journeyNumber, tripNumber, journeyPrefix)
-        return Trip(tripName, lineNumber, journeyNumber, tripNumber, newstops, schedules)
+        return Trip(tripName, lineNumber, journeyNumber, tripNumber, newstops, schedules, null, 0, travelTime, departureTime, arrivalTime)
+
     }
 
     private fun createJourneyName(carrier: String, lineNumber: Int, journeyNumber: Int, journeyPrefix: String): String {
@@ -360,18 +391,36 @@ class AvtobuskiLiniiTest() {
 
     private fun makeTripName(carrier: String, lineNumber: Int, journeyNumber:Int, tripNumber: Int, journeyPrefix: String): String {
         var lns = lineNumber.toString()
+        if(lineNumber / 100 == 0) {
+            lns = "0$lns"
+        }
+
         if(lineNumber / 10 == 0) {
             lns = "0$lns"
         }
-        var jn = "$journeyPrefix${journeyNumber}"
-        if(journeyNumber / 10 == 0) {
-            jn = "${journeyPrefix}0${journeyNumber}"
+
+        var jn = "$journeyPrefix"
+        if(journeyNumber / 10000 == 0) {
+            jn += "0"
         }
+
+        if(journeyNumber / 1000 == 0) {
+            jn += "0"
+        }
+
+        if(journeyNumber / 100 == 0) {
+            jn += "0"
+        }
+
+        if(journeyNumber / 10 == 0) {
+            jn += "0"
+        }
+
         var tn = tripNumber.toString()
         if(tripNumber / 10 == 0) {
             tn = "0$tn"
         }
-        return carrier + lns + jn + "T"+tn
+        return carrier + lns + jn + journeyNumber + "T"+tn
     }
 
     private fun createBusStop(locationName: String, stopTime: String): Stop? {
@@ -528,7 +577,6 @@ class AvtobuskiLiniiTest() {
             }
         }
     }
-
 
     private fun createSchedulesForTrip(scheduleCell: String, scheduleDescriptionCell: String, tripNumber: Int, journeyName: String): List<Schedule> {
         return when(scheduleCell) {
@@ -769,42 +817,6 @@ class AvtobuskiLiniiTest() {
         }
     }
 
-//    @Test
-//    fun readCarriersFromXlsFile() {
-//        val carriers = HashSet<String>()
-//        var carrierCell = ""
-//        val workBook = WorkbookFactory.create(File("files/avtobuski-linii.xls"))
-//        workBook.use { wb ->
-//            val sheet = wb.getSheetAt(0)
-//            sheet.rowIterator().forEach { row ->
-//                try {
-//                    carrierCell = row.cellIterator().next().toString()
-//                    if(carrierCell.isNotBlank()) {
-//                        carriers.add(carrierCell)
-//                    }
-//
-//                } catch(e: IllegalStateException) {
-//                    println("Illegal carrier found.")
-//                }
-//            }
-//        }
-//
-//        println("-------------------------------------------------")
-//
-//        val cs = carriers.size
-//        println("-------------------------------------------------")
-//        println("-------------------------------------------------")
-//        println("Carrier count = $cs")
-//        println("-------------------------------------------------")
-//        carriers.sortedBy { car -> car }.forEach {
-//            println(it)
-//        }
-//
-//        println("-------------------------------------------------")
-//        println("Carrier count = $cs")
-//        assertTrue(true)
-//    }
-
     private fun createLineName(carrierName: String, lineNumber: Int): String? {
         var lns = lineNumber.toString()
 
@@ -818,90 +830,6 @@ class AvtobuskiLiniiTest() {
 
         return carrierName + lns
     }
-
-//    @Test
-//    fun readOldXlsFile() {
-//        val carriers = HashSet<String>()
-//        var rows = ArrayList<Row>()
-//        var rowCount = 0
-//        val workBook = WorkbookFactory.create(File("files/avtobuski-linii.xls"))
-//        workBook.use { wb ->
-//            val sheet = wb.getSheetAt(0)
-//            var carrierStarted = false
-//            var startCell:Cell? = null
-//            var endCell:Cell? = null
-//            sheet.rowIterator().forEach { row ->
-//                try {
-//                    val cell = row.getCell(0)
-//                    when {
-//                        cell != null && cell != startCell -> startCell = cell
-//                        cell != null && cell == startCell -> endCell = cell
-//                    }
-//                    if(startCell != null) {
-//                        if (startCell == endCell) {
-//                            startCell = null
-//                            endCell = null
-//                        } else {
-//                            rows.add(row)
-//                            rowCount += 1
-//                        }
-//                    }
-//                } catch(e: IllegalStateException) {
-//                    println("Illegal carrier found.")
-//                }
-//            }
-//        }
-////        rows.forEach {
-////            println("row = ${it.rowNum}")
-////        }
-//        assertTrue(true)
-//    }
-
-//    @Test
-//    fun parseSchedule() {
-//        val schedule = "S+1,2,3,4,5,6,7,p+01/05-30/09;S+1,2,3,4,5,6,p+01/10-30/04;"
-//        val schedules = schedule.split(";")
-////        schedules.forEach {
-////            println(it)
-////        }
-//        println("schedules size = ${schedules.size}")
-//
-//        val size = schedules.size - 1
-//        for(i in 0 until size) {
-//            println("Schedule = ${schedules[i]}")
-//        }
-//    }
-//
-//    @Test
-//    fun readSchedules() {
-//        var rows = ArrayList<Row>()
-//        val workBook = WorkbookFactory.create(File("files/avtobuski-linii-nice.xls"))
-//        workBook.use { wb ->
-//            val sheet = wb.getSheetAt(0)
-//            val firstRowNum = sheet.firstRowNum
-//            val lastRowNum = sheet.lastRowNum
-//            val schedules = HashSet<String>()
-//            for(rowCount in firstRowNum until lastRowNum) {
-//                val row = sheet.getRow(rowCount)
-//                val cell = row.getCell(28)
-//                if(cell != null && cell.toString().isNotBlank()) {
-//                    val str = cell.toString().trim()
-//                    if(str.isNotBlank() && str.isNotEmpty()) {
-//                        schedules.add(str)
-//                    }
-//                }
-//            }
-//            println("==================")
-//            println(schedules.size)
-//            println("------------------")
-//            schedules.sorted().forEach {
-//                println(it)
-//            }
-//            println("------------------")
-//            println(schedules.size)
-//            println("==================")
-//        }
-//    }
 
     private fun createCarrierName(firstCellValue: String): String {
         return when(firstCellValue) {

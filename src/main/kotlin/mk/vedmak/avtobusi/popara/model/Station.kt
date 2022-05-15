@@ -1,5 +1,6 @@
 package mk.vedmak.avtobusi.popara.model
 
+import org.springframework.data.annotation.Version
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
 import org.springframework.data.neo4j.core.schema.Relationship
@@ -22,4 +23,7 @@ data class Station(
     @Relationship(type="LOCATED", direction = OUTGOING)
     val location: Location? = null,
 
-)
+    @Version
+    val version: Long = 0,
+
+    )

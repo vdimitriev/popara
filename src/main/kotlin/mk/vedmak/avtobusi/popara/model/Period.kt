@@ -1,5 +1,6 @@
 package mk.vedmak.avtobusi.popara.model
 
+import org.springframework.data.annotation.Version
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
 import java.time.LocalDate
@@ -16,5 +17,9 @@ data class Period(
 
     val toDay: Int,
 
-    val toMonth: Int
-)
+    val toMonth: Int,
+
+    @Version
+    val version: Long = 0,
+
+    )

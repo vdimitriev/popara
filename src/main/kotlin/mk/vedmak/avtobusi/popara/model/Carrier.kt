@@ -1,5 +1,6 @@
 package mk.vedmak.avtobusi.popara.model
 
+import org.springframework.data.annotation.Version
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
 import org.springframework.data.neo4j.core.schema.Relationship
@@ -29,7 +30,11 @@ data class Carrier(
     val descriptionLatin: String? = null,
 
     val descriptionCyrillic: String? = null,
-) {
+
+    @Version
+    val version: Long = 0,
+
+    ) {
     override fun equals(other: Any?): Boolean = other is Carrier && other.name == name
 
     override fun hashCode(): Int = name.hashCode()

@@ -1,9 +1,11 @@
 package mk.vedmak.avtobusi.popara.model
 
+import org.springframework.data.annotation.Version
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
 import org.springframework.data.neo4j.core.schema.Relationship
 import org.springframework.data.neo4j.core.schema.Relationship.Direction.OUTGOING
+import java.time.LocalTime
 
 @Node
 data class Journey(
@@ -29,6 +31,13 @@ data class Journey(
     @Relationship("MAINTAINS", direction = OUTGOING)
     var schedules: List<Schedule> = ArrayList(),
 
+    @Version
+    val version: Long = 0,
+
+    var distance: Int = 0,
+
+
+
     ) {
 
     override fun equals(other: Any?): Boolean = other is Journey && other.carrierName == carrierName && other.lineNumber == lineNumber && other.departure == departure && other.arrival == arrival
@@ -36,6 +45,6 @@ data class Journey(
     override fun hashCode(): Int = carrierName.hashCode() + lineNumber.hashCode() + departure.hashCode() + arrival.hashCode()
 
     override fun toString(): String {
-        return "$name - $trips"
+        return "$name - $departure - $arrival - $distance"
     }
 }

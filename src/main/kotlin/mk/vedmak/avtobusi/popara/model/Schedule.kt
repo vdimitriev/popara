@@ -1,5 +1,6 @@
 package mk.vedmak.avtobusi.popara.model
 
+import org.springframework.data.annotation.Version
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
 
@@ -23,6 +24,9 @@ data class Schedule(
 
     var descriptionCyrillic: String = "",
 
-    var tripNumbers: String = ""
+    var tripNumbers: String = "",
 
-)
+    @Version
+    val version: Long = 0,
+
+    )
