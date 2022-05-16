@@ -27,9 +27,9 @@ data class Line(
 
     val descriptionCyrillic: String? = null,
 
-    @Version
-    val version: Long = 0,
-
+//    @Version
+//    val version: Long = 0,
+//
     ) {
     override fun toString(): String {
         return "$name - $journeys"

@@ -23,7 +23,4 @@ data class Location(
 
     val description: String? = null,
 
-    @Version
-    val version: Long = 0,
-
     )

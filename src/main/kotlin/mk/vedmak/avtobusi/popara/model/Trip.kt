@@ -27,14 +27,14 @@ data class Trip(
 
     val description: String? = null,
 
-    @Version
-    val version: Long = 0,
-
     var travelTime: String = "",
 
     var scheduledDepartureTime: LocalTime? = null,
 
     var scheduledArrivalTime: LocalTime? = null,
+
+//    @Version
+//    val version: Long = 0,
 
     ) {
     override fun toString(): String {

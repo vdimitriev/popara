@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 
 @Repository
+@Transactional
 interface JourneyRepository: Neo4jRepository<Journey, String> {
 
 //    //@Query("MATCH (a:Location)<-[ja:ARRIVES_AT]-(j:Journey)-[jd:DEPARTS_AT]->(d:Location) MATCH (j)-[jt:CONTAINS]->(t:Trip)->[ts:STOPS_AT]->(s:Stop) where d.name = 'BT' and a.name = 'OH' RETURN j,jd,d,ja,a,jt,t,ts,s")

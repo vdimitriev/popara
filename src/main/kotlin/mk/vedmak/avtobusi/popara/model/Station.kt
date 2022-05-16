@@ -23,7 +23,4 @@ data class Station(
     @Relationship(type="LOCATED", direction = OUTGOING)
     val location: Location? = null,
 
-    @Version
-    val version: Long = 0,
-
     )

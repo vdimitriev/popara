@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.io.File
 import java.time.LocalTime
+import java.time.temporal.TemporalAmount
 
 @SpringBootTest
 class AvtobuskiLiniiTest() {
@@ -24,7 +25,8 @@ class AvtobuskiLiniiTest() {
     @Test
     fun readXlsFileAndPersistBusLines() {
         val pathname = "files/avtobuski-linii-test.xls"
-        println("start reading file $pathname")
+        val startTime = LocalTime.now()
+        println("$startTime: start reading file $pathname")
         var rows = ArrayList<Row>()
         val workBook = WorkbookFactory.create(File(pathname))
         workBook.use { wb ->
@@ -44,24 +46,42 @@ class AvtobuskiLiniiTest() {
                     rows.add(row)
                     val firstCellValue = firstCell.toString().trim()
                     val carrierName = createCarrierName(firstCellValue)
-                    var carrier = Carrier(carrierName, 0, "Location", mutableListOf(), 0, carrierName, carrierName)
+                    val firstCellValueLatin = operationsUtil.createLatinName(firstCellValue)
+                    val (location, nameOfCarrier) = createLocation(firstCellValue)
+                    val (locationLatin, nameOfCarrierLatin) = createLocation(firstCellValueLatin)
+                    var carrier = Carrier(carrierName, 0, location, mutableListOf(), 0, nameOfCarrierLatin, nameOfCarrier, locationLatin, firstCellValueLatin, firstCellValueLatin, firstCellValue)
                     firstCell = null
                     extractAllLinesForCarrier(rows, carrier)
                     rows = ArrayList()
-                    printCarrier(carrier)
-                    //saveCarrier(carrier)
+                    //printCarrier(carrier)
+                    saveCarrier(carrier)
                 }
             }
         }
-        println("finish reading file $pathname")
+        val finishTime = LocalTime.now()
+        println("$finishTime: finish reading file $pathname")
+        println("Time spent is ${finishTime.minusNanos(startTime.toNanoOfDay())}")
         assertTrue(true)
+    }
+
+    private fun createLocation(firstCellValue: String): Pair<String?,String?> {
+        val values = firstCellValue.split(" - ")
+        var location = firstCellValue.trim()
+        var nameOfCarrier = firstCellValue.trim()
+        if(values.size < 2) return Pair(location, nameOfCarrier)
+        nameOfCarrier = values[0].trimStart().trimEnd().trim()
+        location = values[1].trimStart().trimEnd().trim()
+        return Pair(location, nameOfCarrier)
     }
 
     private fun saveCarrier(carrier: Carrier) {
         println("========================================")
-        println("saving carrier = ${carrier.name}")
+        val startTime = LocalTime.now()
+        println("$startTime: saving carrier = ${carrier.name}")
         carrierRepository.save(carrier)
-        println("saved carrier = ${carrier.name}")
+        val finishTime = LocalTime.now()
+        println("$finishTime: saved carrier = ${carrier.name}")
+        println("Time spent is ${finishTime.minusNanos(startTime.toNanoOfDay())}")
         println("----------------------------------------")
     }
 
@@ -139,8 +159,8 @@ class AvtobuskiLiniiTest() {
 
     private fun extractAllJourneysForLine(rows: ArrayList<Row>, carrier: Carrier) {
         val lineNumber = rows[0].getCell(2).numericCellValue.toInt()
-        val lineName = rows[0].getCell(3).stringCellValue
-        val line = Line(createLineName(carrier.name, lineNumber), lineName, lineName, lineNumber, mutableSetOf())
+        val lineNameCell = rows[0].getCell(3).stringCellValue
+        val line = Line(createLineName(carrier.name, lineNumber),operationsUtil.createLatinName(lineNameCell), lineNameCell, lineNumber, mutableSetOf())
         println("extract line ${line.name}")
 
         extractOneWay(rows, carrier.name, line)
@@ -325,6 +345,8 @@ class AvtobuskiLiniiTest() {
         val jn = journeyNumber + 1
         val journey = Journey(createJourneyName(carrier, lineNumber, jn, journeyPrefix), carrier, lineNumber, jn, firstStop.location, lastStop.location)
         journey.distance = distance
+        journey.fullNameCyrillic = firstStop.location.plus(" - ").plus(lastStop)
+        journey.fullNameLatin = operationsUtil.createLatinName(journey.fullNameCyrillic)
         return journeys.singleOrNull { it == journey } ?: journey
     }
 
@@ -351,7 +373,7 @@ class AvtobuskiLiniiTest() {
         trip.stops.forEach { newstops.add(it) }
         val travelTime = calculateTravelTime(departureTime, arrivalTime)
         val tripName = makeTripName(carrier, lineNumber, journeyNumber, tripNumber, journeyPrefix)
-        return Trip(tripName, lineNumber, journeyNumber, tripNumber, newstops, schedules, null, 0, travelTime, departureTime, arrivalTime)
+        return Trip(tripName, lineNumber, journeyNumber, tripNumber, newstops, schedules, null, travelTime, departureTime, arrivalTime)
 
     }
 

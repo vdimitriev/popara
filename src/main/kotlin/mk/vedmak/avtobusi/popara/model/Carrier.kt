@@ -25,14 +25,16 @@ data class Carrier(
 
     val cyrillicName: String? = null,
 
+    val locationLatin: String? = null,
+
     val description: String? = null,
 
     val descriptionLatin: String? = null,
 
     val descriptionCyrillic: String? = null,
 
-    @Version
-    val version: Long = 0,
+//    @Version
+//    val version: Long = 0,
 
     ) {
     override fun equals(other: Any?): Boolean = other is Carrier && other.name == name

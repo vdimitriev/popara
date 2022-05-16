@@ -31,12 +31,14 @@ data class Journey(
     @Relationship("MAINTAINS", direction = OUTGOING)
     var schedules: List<Schedule> = ArrayList(),
 
-    @Version
-    val version: Long = 0,
-
     var distance: Int = 0,
 
+    var fullNameLatin:String = "",
 
+    var fullNameCyrillic:String = "",
+
+//    @Version
+//    val version: Long = 0,
 
     ) {
 

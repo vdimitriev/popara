@@ -19,7 +19,7 @@ data class Period(
 
     val toMonth: Int,
 
-    @Version
-    val version: Long = 0,
+//    @Version
+//    val version: Long = 0,
 
     )

@@ -26,7 +26,7 @@ data class Schedule(
 
     var tripNumbers: String = "",
 
-    @Version
-    val version: Long = 0,
-
+//    @Version
+//    val version: Long = 0,
+//
     )
