@@ -41,7 +41,18 @@
             <artifactId>kotlin-stdlib-jdk8</artifactId>
         </dependency>
 
-<!--        <dependency>-->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+
+        <!--        <dependency>-->
 <!--            <groupId>org.neo4j</groupId>-->
 <!--            <artifactId>neo4j-ogm-embedded-driver</artifactId>-->
 <!--            <version>3.2.32</version>-->
@@ -56,6 +67,11 @@
 <!--            <artifactId>neo4j-ogm-test</artifactId>-->
 <!--            <version>3.1.22</version>-->
 <!--        </dependency>-->
+        <dependency>
+            <groupId>com.ibm.icu</groupId>
+            <artifactId>icu4j</artifactId>
+            <version>71.1</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

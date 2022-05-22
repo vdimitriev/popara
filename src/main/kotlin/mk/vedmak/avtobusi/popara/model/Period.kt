@@ -3,20 +3,23 @@ package mk.vedmak.avtobusi.popara.model
 import org.springframework.data.annotation.Version
 import org.springframework.data.neo4j.core.schema.Id
 import org.springframework.data.neo4j.core.schema.Node
+import java.time.LocalDate
 
 @Node
-data class Country(
+data class Period(
 
     @Id
-    val name: String,
+    val name: String = "",
 
-    val latinName: String? = null,
+    val fromDay: Int,
 
-    val cyrillicName: String? = null,
+    val fromMonth: Int,
 
-    val twoLetterCountryCode: String? = null,
+    val toDay: Int,
 
-    val threeLetterCountryCode: String? = null,
+    val toMonth: Int,
 
+//    @Version
+//    val version: Long = 0,
 
     )

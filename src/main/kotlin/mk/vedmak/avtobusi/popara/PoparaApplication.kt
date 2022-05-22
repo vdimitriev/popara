@@ -1,6 +1,5 @@
 package mk.vedmak.avtobusi.popara
 
-import mk.vedmak.avtobusi.popara.service.Populator
 import mu.KotlinLogging
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -8,7 +7,7 @@ import org.springframework.boot.runApplication
 import org.springframework.data.neo4j.repository.config.EnableNeo4jRepositories
 
 @SpringBootApplication
-class PoparaApplication(val populator: Populator):CommandLineRunner {
+class PoparaApplication:CommandLineRunner {
 
     private val logger = KotlinLogging.logger {}
 
@@ -17,8 +16,6 @@ class PoparaApplication(val populator: Populator):CommandLineRunner {
         args.forEach {
             logger.info("command line arg = $it")
         }
-
-        populator.populate()
         logger.info("Popara stops running.")
     }
 }

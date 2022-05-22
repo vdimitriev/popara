@@ -12,3 +12,16 @@ Local build and run without IDE:
     $ ./mvnw spring-boot:run
     $ java -jar target/popara.jar
 
+
+## Create indexes in Neo4J
+
+    CREATE INDEX FOR (n:Carrier) ON (n.name);
+    CREATE INDEX FOR (n:Country) ON (n.name);
+    CREATE INDEX FOR (n:Journey) ON (n.name);
+    CREATE INDEX FOR (n:Location) ON (n.name);
+    CREATE INDEX FOR (n:Line) ON (n.name);
+    CREATE INDEX FOR (n:Period) ON (n.name);
+    CREATE INDEX FOR (n:Schedule) ON (n.name);
+    CREATE INDEX FOR (n:Station) ON (n.name);
+    CREATE INDEX FOR (n:Stop) ON (n.name);
+    CREATE INDEX FOR (n:Trip) ON (n.name);
