@@ -24,7 +24,7 @@ class AvtobuskiLiniiTest() {
 
     @Test
     fun readXlsFileAndPersistBusLines() {
-        val pathname = "files/avtobuski-linii-test.xls"
+        val pathname = "files/avtobuski-linii-nice.xls"
         val startTime = LocalTime.now()
         println("$startTime: start reading file $pathname")
         var rows = ArrayList<Row>()
