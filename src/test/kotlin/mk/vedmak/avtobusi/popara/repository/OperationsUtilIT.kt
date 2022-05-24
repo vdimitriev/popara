@@ -5,12 +5,25 @@ import mk.vedmak.avtobusi.popara.util.OperationsUtil
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.util.*
+import kotlin.random.Random
 
 @SpringBootTest
 class OperationsUtilIT {
 
     @Autowired
     private lateinit var operationsUtil: OperationsUtil
+
+    @Test
+    fun randomTest() {
+        val random = UUID.randomUUID().toString()
+        println(random)
+
+        val random2 = operationsUtil.getRandom()
+        println(random2)
+
+
+    }
 
     @Test
     fun latinToMacedonianDotTest() {

@@ -2,6 +2,8 @@ package mk.vedmak.avtobusi.popara.util
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component;
+import java.util.*
+import kotlin.random.Random
 
 @Component
 class OperationsUtil {
@@ -26,4 +28,6 @@ class OperationsUtil {
             ""
         }
     }
+
+    fun getRandom(): String = UUID.randomUUID().toString()
 }

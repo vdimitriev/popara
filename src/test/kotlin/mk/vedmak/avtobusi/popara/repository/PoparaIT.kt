@@ -1,6 +1,10 @@
 package mk.vedmak.avtobusi.popara.repository
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import mk.vedmak.avtobusi.popara.model.*
+import org.bouncycastle.util.test.SimpleTest.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -36,8 +40,9 @@ class PoparaIT {
     @Autowired
     private lateinit var countryRepository: CountryRepository
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun deleteAllDataFromRepositories() {
+    fun deleteAllDataFromRepositories() = runBlocking(Dispatchers.IO) {
         deleteAll()
     }
 
@@ -309,16 +314,16 @@ class PoparaIT {
 //        //deleteAll()
 //    }
 
-    private fun deleteAll() {
-        periodRepository.deleteAll()
-        scheduleRepository.deleteAll()
-        countryRepository.deleteAll()
-        stopRepository.deleteAll()
-        locationRepository.deleteAll()
-        tripRepository.deleteAll()
-        journeyRepository.deleteAll()
-        lineRepository.deleteAll()
-        carrierRepository.deleteAll()
+    private suspend fun deleteAll() {
+        periodRepository.deleteAll().block()
+        scheduleRepository.deleteAll().block()
+        countryRepository.deleteAll().block()
+        stopRepository.deleteAll().block()
+        locationRepository.deleteAll().block()
+        tripRepository.deleteAll().block()
+        journeyRepository.deleteAll().block()
+        lineRepository.deleteAll().block()
+        carrierRepository.deleteAll().block()
     }
 
 }

@@ -1,5 +1,12 @@
 package mk.vedmak.avtobusi.popara.repository
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.reactive.collect
+import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingleOrNull
+import kotlinx.coroutines.runBlocking
 import mk.vedmak.avtobusi.popara.model.*
 import mk.vedmak.avtobusi.popara.util.OperationsUtil
 import org.apache.poi.ss.usermodel.Cell
@@ -9,9 +16,11 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import reactor.core.publisher.Flux
 import java.io.File
 import java.time.LocalTime
 import java.time.temporal.TemporalAmount
+import kotlin.random.Random
 
 @SpringBootTest
 class AvtobuskiLiniiTest() {
@@ -27,6 +36,7 @@ class AvtobuskiLiniiTest() {
         val pathname = "files/avtobuski-linii-nice.xls"
         val startTime = LocalTime.now()
         println("$startTime: start reading file $pathname")
+        val carriers = HashSet<Carrier>()
         var rows = ArrayList<Row>()
         val workBook = WorkbookFactory.create(File(pathname))
         workBook.use { wb ->
@@ -54,14 +64,39 @@ class AvtobuskiLiniiTest() {
                     extractAllLinesForCarrier(rows, carrier)
                     rows = ArrayList()
                     //printCarrier(carrier)
-                    saveCarrier(carrier)
+                    //saveCarrier(carrier)
+                    carriers.add(carrier)
                 }
             }
         }
+
+        saveCarriers(carriers)
+        //printCarriers(carriers)
         val finishTime = LocalTime.now()
         println("$finishTime: finish reading file $pathname")
         println("Time spent is ${finishTime.minusNanos(startTime.toNanoOfDay())}")
         assertTrue(true)
+    }
+
+    private fun printCarriers(carriers: HashSet<Carrier>) = runBlocking(Dispatchers.IO){
+        carriers.forEach {
+            launch {
+                printCarrier(it)
+            }
+        }
+    }
+
+    private fun saveCarriers(carriers: HashSet<Carrier>) = runBlocking(Dispatchers.IO){
+        carriers.forEach {
+            launch {
+                saveCarrier(it)
+            }
+        }
+
+//        launch {
+//            val count = carrierRepository.saveAll(Flux.fromIterable(carriers)).count()
+//            println("carrier count = ${count.awaitSingle()}")
+//        }
     }
 
     private fun createLocation(firstCellValue: String): Pair<String?,String?> {
@@ -74,11 +109,17 @@ class AvtobuskiLiniiTest() {
         return Pair(location, nameOfCarrier)
     }
 
-    private fun saveCarrier(carrier: Carrier) {
+    private suspend fun saveCarrier(carrier: Carrier) {
         println("========================================")
         val startTime = LocalTime.now()
         println("$startTime: saving carrier = ${carrier.name}")
-        carrierRepository.save(carrier)
+
+        try {
+            val saved = carrierRepository.save(carrier).awaitSingle()
+            println("saved carrier = ${saved?.latinName}")
+        } catch (e: Exception) {
+            println("${carrier.name}: exception when saving: ${e.message}")
+        }
         val finishTime = LocalTime.now()
         println("$finishTime: saved carrier = ${carrier.name}")
         println("Time spent is ${finishTime.minusNanos(startTime.toNanoOfDay())}")
@@ -89,7 +130,7 @@ class AvtobuskiLiniiTest() {
         println("carries count = " + carriers.size)
     }
 
-    private fun printCarrier(carrier: Carrier) {
+    private suspend fun printCarrier(carrier: Carrier) {
         println("========================================")
         println(carrier.name)
         println("----------------------------------------")
@@ -161,11 +202,11 @@ class AvtobuskiLiniiTest() {
         val lineNumber = rows[0].getCell(2).numericCellValue.toInt()
         val lineNameCell = rows[0].getCell(3).stringCellValue
         val line = Line(createLineName(carrier.name, lineNumber),operationsUtil.createLatinName(lineNameCell), lineNameCell, lineNumber, mutableSetOf())
-        println("extract line ${line.name}")
+        //println("extract line ${line.name}")
 
         extractOneWay(rows, carrier.name, line)
         extractReturn(rows, carrier.name, line)
-        println("extracted line ${line.name}")
+        //println("extracted line ${line.name}")
         carrier.lines.add(line)
     }
 
@@ -318,7 +359,7 @@ class AvtobuskiLiniiTest() {
                                 journeyNumber,
                                 tripNumber,
                                 journeyPrefix,
-                                schedules,
+                                listOf(),
                                 firstStop.time,
                                 lastStop.time
                             )
@@ -448,7 +489,7 @@ class AvtobuskiLiniiTest() {
     private fun createBusStop(locationName: String, stopTime: String): Stop? {
         val busStopTime = createBusStopTime(stopTime) ?: return null
         //println("Bus stop time = $busStopTime")
-        val busStopName = createBusStopName(locationName.trim(), busStopTime)
+        val busStopName = createBusStopName(locationName.trim(), busStopTime) + "-" + operationsUtil.getRandom()
         val stop = Stop(busStopName, busStopTime, locationName)
 
         return stop
@@ -602,54 +643,54 @@ class AvtobuskiLiniiTest() {
 
     private fun createSchedulesForTrip(scheduleCell: String, scheduleDescriptionCell: String, tripNumber: Int, journeyName: String): List<Schedule> {
         return when(scheduleCell) {
-            "S+1,2,3,4,5+01/01-31/12;" -> listOf(Schedule("SCH01", listOf(1,2,3,4,5), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5+01/09-31/05;" -> listOf(Schedule("SCH02", listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3105", 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6+01/01-31/12;" -> listOf(Schedule("SCH03", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/01-31/12;" -> listOf(Schedule("SCH04", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/04-30/09;" -> listOf(Schedule("SCH05", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0104-3009", 1, 4, 30, 9)), listOf(4,5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/06-30/09;" -> listOf(Schedule("SCH06", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3009", 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/06-31/08;" -> listOf(Schedule("SCH07", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3108", 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/07-01/09;" -> listOf(Schedule("SCH08", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-0109", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/07-30/08;" -> listOf(Schedule("SCH09", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3008", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/07-31/08;" -> listOf(Schedule("SCH10", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/09-30/06;" -> listOf(Schedule("SCH11", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/09-31/05;" -> listOf(Schedule("SCH12", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3105", 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+15/06-15/09;" -> listOf(Schedule("SCH13", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-1509", 15, 6, 15, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+15/06-31/08;" -> listOf(Schedule("SCH14", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-3108", 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+20/06-31/08;" -> listOf(Schedule("SCH15", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2006-3108", 20, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+26/06-31/08;" -> listOf(Schedule("SCH16", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2606-3108", 26, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+30/06-31/08;" -> listOf(Schedule("SCH17", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-3006-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell))
-            "S+1,2,3,4,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH18", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/07-31/08;" -> listOf(Schedule("SCH19", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0107-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/09-14/06;" -> listOf(Schedule("SCH20", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-1406", 1, 9, 14, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/09-30/06;" -> listOf(Schedule("SCH21", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/10-30/06;" -> listOf(Schedule("SCH22", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3006", 1, 10, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+15/06-31/08;" -> listOf(Schedule("SCH23", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-1506-3108", 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,7,p+01/01-31/12;" -> listOf(Schedule("SCH24", listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,7,p+01/06-31/08;" -> listOf(Schedule("SCH25", listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0106-3108", 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,7,p+01/09-31/05;" -> listOf(Schedule("SCH26", listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0109-3105", 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/01-31/12;" -> listOf(Schedule("SCH27", listOf(1,2,3,4,5), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/02-15/05;" -> listOf(Schedule("SCH28", listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505", 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/06-30/09;" -> listOf(Schedule("SCH29", listOf(1,2,3,4,5), listOf(Period("PERIOD-0106-3009", 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/09-10/06;" -> listOf(Schedule("SCH30", listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-1006", 1, 9, 10, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/09-30/06;" -> listOf(Schedule("SCH31", listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+15/09-31/12;" -> listOf(Schedule("SCH32", listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112", 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH33", listOf(1,2,3,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,3,4,6,p+15/06-31/08;" -> listOf(Schedule("SCH34", listOf(1,3,4,6), listOf(Period("PERIOD-1506-3108", 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH35", listOf(1,3,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,5,p+01/01-31/12;" -> listOf(Schedule("SCH36", listOf(1,5), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,5,p+01/07-31/08;" -> listOf(Schedule("SCH37", listOf(1,5), listOf(Period("PERIOD-0107-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+6,7,p+01/01-31/12;" -> listOf(Schedule("SCH38", listOf(6,7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+6,p+01/01-31/12;" -> listOf(Schedule("SCH39", listOf(6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+7,p+01/01-31/12;" -> listOf(Schedule("SCH40", listOf(7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+7,p+01/09-30/06;" -> listOf(Schedule("SCH41", listOf(7), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5+01/01-31/12;" -> listOf(Schedule("SCH01" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5+01/09-31/05;" -> listOf(Schedule("SCH02" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3105" + journeyName + tripNumber, 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6+01/01-31/12;" -> listOf(Schedule("SCH03" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/01-31/12;" -> listOf(Schedule("SCH04" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/04-30/09;" -> listOf(Schedule("SCH05" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0104-3009" + journeyName + tripNumber, 1, 4, 30, 9)), listOf(4,5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/06-30/09;" -> listOf(Schedule("SCH06" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3009" + journeyName + tripNumber, 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/06-31/08;" -> listOf(Schedule("SCH07" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3108" + journeyName + tripNumber, 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/07-01/09;" -> listOf(Schedule("SCH08" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-0109" + journeyName + tripNumber, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/07-30/08;" -> listOf(Schedule("SCH09" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3008" + journeyName + tripNumber, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/07-31/08;" -> listOf(Schedule("SCH10" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3108" + journeyName + tripNumber, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/09-30/06;" -> listOf(Schedule("SCH11" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3006" + journeyName + tripNumber, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/09-31/05;" -> listOf(Schedule("SCH12" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3105" + journeyName + tripNumber, 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+15/06-15/09;" -> listOf(Schedule("SCH13" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-1509" + journeyName + tripNumber, 15, 6, 15, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+15/06-31/08;" -> listOf(Schedule("SCH14" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-3108" + journeyName + tripNumber, 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+20/06-31/08;" -> listOf(Schedule("SCH15" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2006-3108" + journeyName + tripNumber, 20, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+26/06-31/08;" -> listOf(Schedule("SCH16" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2606-3108" + journeyName + tripNumber, 26, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+30/06-31/08;" -> listOf(Schedule("SCH17" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-3006-3108" + journeyName + tripNumber, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell))
+            "S+1,2,3,4,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH18" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/07-31/08;" -> listOf(Schedule("SCH19" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0107-3108" + journeyName + tripNumber, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/09-14/06;" -> listOf(Schedule("SCH20" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-1406" + journeyName + tripNumber, 1, 9, 14, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/09-30/06;" -> listOf(Schedule("SCH21" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-3006" + journeyName + tripNumber, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/10-30/06;" -> listOf(Schedule("SCH22" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3006" + journeyName + tripNumber, 1, 10, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+15/06-31/08;" -> listOf(Schedule("SCH23" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-1506-3108" + journeyName + tripNumber, 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,7,p+01/01-31/12;" -> listOf(Schedule("SCH24" + journeyName + tripNumber, listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,7,p+01/06-31/08;" -> listOf(Schedule("SCH25" + journeyName + tripNumber, listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0106-3108" + journeyName + tripNumber, 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,7,p+01/09-31/05;" -> listOf(Schedule("SCH26" + journeyName + tripNumber, listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0109-3105" + journeyName + tripNumber, 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/01-31/12;" -> listOf(Schedule("SCH27" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/02-15/05;" -> listOf(Schedule("SCH28" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505" + journeyName + tripNumber, 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/06-30/09;" -> listOf(Schedule("SCH29" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0106-3009" + journeyName + tripNumber, 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/09-10/06;" -> listOf(Schedule("SCH30" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-1006" + journeyName + tripNumber, 1, 9, 10, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/09-30/06;" -> listOf(Schedule("SCH31" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3006" + journeyName + tripNumber, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+15/09-31/12;" -> listOf(Schedule("SCH32" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112" + journeyName + tripNumber, 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH33" + journeyName + tripNumber, listOf(1,2,3,5,6), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,3,4,6,p+15/06-31/08;" -> listOf(Schedule("SCH34" + journeyName + tripNumber, listOf(1,3,4,6), listOf(Period("PERIOD-1506-3108" + journeyName + tripNumber, 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH35" + journeyName + tripNumber, listOf(1,3,5,6), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,5,p+01/01-31/12;" -> listOf(Schedule("SCH36" + journeyName + tripNumber, listOf(1,5), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,5,p+01/07-31/08;" -> listOf(Schedule("SCH37" + journeyName + tripNumber, listOf(1,5), listOf(Period("PERIOD-0107-3108" + journeyName + tripNumber, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+6,7,p+01/01-31/12;" -> listOf(Schedule("SCH38" + journeyName + tripNumber, listOf(6,7), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+6,p+01/01-31/12;" -> listOf(Schedule("SCH39" + journeyName + tripNumber, listOf(6), listOf(Period("PERIOD-0101-3112 + journeyName + tripNumber", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+7,p+01/01-31/12;" -> listOf(Schedule("SCH40" + journeyName + tripNumber, listOf(7), listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+7,p+01/09-30/06;" -> listOf(Schedule("SCH41" + journeyName + tripNumber, listOf(7), listOf(Period("PERIOD-0109-3006" + journeyName + tripNumber, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
             "S+1,2,3,4,5,6,7,p+01/05-30/09;S+1,2,3,4,5,6,p+01/10-30/04;" -> listOf(
-                Schedule("SCH42", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0105-3009", 1, 5, 30, 9)), listOf(5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
-                Schedule("SCH43", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3004", 1, 10, 30, 4)), listOf(1,2,3,4,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
+                Schedule("SCH42" + journeyName + tripNumber, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0105-3009" + journeyName + tripNumber, 1, 5, 30, 9)), listOf(5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
+                Schedule("SCH43" + journeyName + tripNumber, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3004" + journeyName + tripNumber, 1, 10, 30, 4)), listOf(1,2,3,4,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
             )
             "S+1,2,3,4,5,p+15/09-31/12;S+1,2,3,4,5,p+01/02-15/05;" -> listOf(
-                Schedule("SCH32", listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112", 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
-                Schedule("SCH28", listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505", 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S")
+                Schedule("SCH32" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112" + journeyName + tripNumber, 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
+                Schedule("SCH28" + journeyName + tripNumber, listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505" + journeyName + tripNumber, 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S")
             )
             else -> createSchedulesBasedOnTripNumber(scheduleCell, scheduleDescriptionCell, tripNumber, journeyName)
         }
@@ -657,54 +698,55 @@ class AvtobuskiLiniiTest() {
 
     private fun createSchedulesForJourney(scheduleCell: String, scheduleDescriptionCell: String, journeyName: String): List<Schedule> {
         return when(scheduleCell) {
-            "S+1,2,3,4,5+01/01-31/12;" -> listOf(Schedule("SCH01", listOf(1,2,3,4,5), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5+01/09-31/05;" -> listOf(Schedule("SCH02", listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3105", 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6+01/01-31/12;" -> listOf(Schedule("SCH03", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/01-31/12;" -> listOf(Schedule("SCH04", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/04-30/09;" -> listOf(Schedule("SCH05", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0104-3009", 1, 4, 30, 9)), listOf(4,5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/06-30/09;" -> listOf(Schedule("SCH06", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3009", 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/06-31/08;" -> listOf(Schedule("SCH07", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3108", 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/07-01/09;" -> listOf(Schedule("SCH08", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-0109", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/07-30/08;" -> listOf(Schedule("SCH09", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3008", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/07-31/08;" -> listOf(Schedule("SCH10", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/09-30/06;" -> listOf(Schedule("SCH11", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+01/09-31/05;" -> listOf(Schedule("SCH12", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3105", 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+15/06-15/09;" -> listOf(Schedule("SCH13", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-1509", 15, 6, 15, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+15/06-31/08;" -> listOf(Schedule("SCH14", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-3108", 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+20/06-31/08;" -> listOf(Schedule("SCH15", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2006-3108", 20, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+26/06-31/08;" -> listOf(Schedule("SCH16", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2606-3108", 26, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,7,p+30/06-31/08;" -> listOf(Schedule("SCH17", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-3006-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH18", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/07-31/08;" -> listOf(Schedule("SCH19", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0107-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/09-14/06;" -> listOf(Schedule("SCH20", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-1406", 1, 9, 14, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/09-30/06;" -> listOf(Schedule("SCH21", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+01/10-30/06;" -> listOf(Schedule("SCH22", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3006", 1, 10, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,6,p+15/06-31/08;" -> listOf(Schedule("SCH23", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-1506-3108", 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,7,p+01/01-31/12;" -> listOf(Schedule("SCH24", listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,7,p+01/06-31/08;" -> listOf(Schedule("SCH25", listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0106-3108", 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,7,p+01/09-31/05;" -> listOf(Schedule("SCH26", listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0109-3105", 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/01-31/12;" -> listOf(Schedule("SCH27", listOf(1,2,3,4,5), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/02-15/05;" -> listOf(Schedule("SCH28", listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505", 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/06-30/09;" -> listOf(Schedule("SCH29", listOf(1,2,3,4,5), listOf(Period("PERIOD-0106-3009", 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/09-10/06;" -> listOf(Schedule("SCH30", listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-1006", 1, 9, 10, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+01/09-30/06;" -> listOf(Schedule("SCH31", listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,4,5,p+15/09-31/12;" -> listOf(Schedule("SCH32", listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112", 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,2,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH33", listOf(1,2,3,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,3,4,6,p+15/06-31/08;" -> listOf(Schedule("SCH34", listOf(1,3,4,6), listOf(Period("PERIOD-1506-3108", 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH35", listOf(1,3,5,6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,5,p+01/01-31/12;" -> listOf(Schedule("SCH36", listOf(1,5), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+1,5,p+01/07-31/08;" -> listOf(Schedule("SCH37", listOf(1,5), listOf(Period("PERIOD-0107-3108", 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+6,7,p+01/01-31/12;" -> listOf(Schedule("SCH38", listOf(6,7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+6,p+01/01-31/12;" -> listOf(Schedule("SCH39", listOf(6), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+7,p+01/01-31/12;" -> listOf(Schedule("SCH40", listOf(7), listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
-            "S+7,p+01/09-30/06;" -> listOf(Schedule("SCH41", listOf(7), listOf(Period("PERIOD-0109-3006", 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5+01/01-31/12;" -> listOf(Schedule("SCH01" + "-" + journeyName, listOf(1,2,3,4,5), 
+                listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5+01/09-31/05;" -> listOf(Schedule("SCH02" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3105" + "-" + journeyName, 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6+01/01-31/12;" -> listOf(Schedule("SCH03" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), false, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/01-31/12;" -> listOf(Schedule("SCH04" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/04-30/09;" -> listOf(Schedule("SCH05" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0104-3009" + "-" + journeyName, 1, 4, 30, 9)), listOf(4,5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/06-30/09;" -> listOf(Schedule("SCH06" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3009" + "-" + journeyName, 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/06-31/08;" -> listOf(Schedule("SCH07" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0106-3108" + "-" + journeyName, 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/07-01/09;" -> listOf(Schedule("SCH08" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-0109" + "-" + journeyName, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/07-30/08;" -> listOf(Schedule("SCH09" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3008" + "-" + journeyName, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/07-31/08;" -> listOf(Schedule("SCH10" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0107-3108" + "-" + journeyName, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/09-30/06;" -> listOf(Schedule("SCH11" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3006" + "-" + journeyName, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+01/09-31/05;" -> listOf(Schedule("SCH12" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0109-3105" + "-" + journeyName, 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+15/06-15/09;" -> listOf(Schedule("SCH13" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-1509" + "-" + journeyName, 15, 6, 15, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+15/06-31/08;" -> listOf(Schedule("SCH14" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-1506-3108" + "-" + journeyName, 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+20/06-31/08;" -> listOf(Schedule("SCH15" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2006-3108" + "-" + journeyName, 20, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+26/06-31/08;" -> listOf(Schedule("SCH16" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-2606-3108" + "-" + journeyName, 26, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,7,p+30/06-31/08;" -> listOf(Schedule("SCH17" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-3006-3108" + "-" + journeyName, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH18" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/07-31/08;" -> listOf(Schedule("SCH19" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0107-3108" + "-" + journeyName, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/09-14/06;" -> listOf(Schedule("SCH20" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-1406" + "-" + journeyName, 1, 9, 14, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/09-30/06;" -> listOf(Schedule("SCH21" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0109-3006" + "-" + journeyName, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+01/10-30/06;" -> listOf(Schedule("SCH22" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3006" + "-" + journeyName, 1, 10, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,6,p+15/06-31/08;" -> listOf(Schedule("SCH23" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-1506-3108" + "-" + journeyName, 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,7,p+01/01-31/12;" -> listOf(Schedule("SCH24" + "-" + journeyName, listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,7,p+01/06-31/08;" -> listOf(Schedule("SCH25" + "-" + journeyName, listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0106-3108" + "-" + journeyName, 1, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,7,p+01/09-31/05;" -> listOf(Schedule("SCH26" + "-" + journeyName, listOf(1,2,3,4,5,7), listOf(Period("PERIOD-0109-3105" + "-" + journeyName, 1, 9, 31, 5)), listOf(1,2,3,4,5,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/01-31/12;" -> listOf(Schedule("SCH27" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/02-15/05;" -> listOf(Schedule("SCH28" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505" + "-" + journeyName, 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/06-30/09;" -> listOf(Schedule("SCH29" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-0106-3009" + "-" + journeyName, 1, 6, 30, 9)), listOf(6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/09-10/06;" -> listOf(Schedule("SCH30" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-1006" + "-" + journeyName, 1, 9, 10, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+01/09-30/06;" -> listOf(Schedule("SCH31" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-0109-3006" + "-" + journeyName, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,4,5,p+15/09-31/12;" -> listOf(Schedule("SCH32" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112" + "-" + journeyName, 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,2,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH33" + "-" + journeyName, listOf(1,2,3,5,6), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,3,4,6,p+15/06-31/08;" -> listOf(Schedule("SCH34" + "-" + journeyName, listOf(1,3,4,6), listOf(Period("PERIOD-1506-3108" + "-" + journeyName, 15, 6, 31, 8)), listOf(6,7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,3,5,6,p+01/01-31/12;" -> listOf(Schedule("SCH35" + "-" + journeyName, listOf(1,3,5,6), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,5,p+01/01-31/12;" -> listOf(Schedule("SCH36" + "-" + journeyName, listOf(1,5), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+1,5,p+01/07-31/08;" -> listOf(Schedule("SCH37" + "-" + journeyName, listOf(1,5), listOf(Period("PERIOD-0107-3108" + "-" + journeyName, 1, 7, 31, 8)), listOf(7,8), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+6,7,p+01/01-31/12;" -> listOf(Schedule("SCH38" + "-" + journeyName, listOf(6,7), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+6,p+01/01-31/12;" -> listOf(Schedule("SCH39" + "-" + journeyName, listOf(6), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+7,p+01/01-31/12;" -> listOf(Schedule("SCH40" + "-" + journeyName, listOf(7), listOf(Period("PERIOD-0101-3112" + "-" + journeyName, 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
+            "S+7,p+01/09-30/06;" -> listOf(Schedule("SCH41" + "-" + journeyName, listOf(7), listOf(Period("PERIOD-0109-3006" + "-" + journeyName, 1, 9, 30, 6)), listOf(1,2,3,4,5,6,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"))
             "S+1,2,3,4,5,6,7,p+01/05-30/09;S+1,2,3,4,5,6,p+01/10-30/04;" -> listOf(
-                Schedule("SCH42", listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0105-3009", 1, 5, 30, 9)), listOf(5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
-                Schedule("SCH43", listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3004", 1, 10, 30, 4)), listOf(1,2,3,4,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
+                Schedule("SCH42" + "-" + journeyName, listOf(1,2,3,4,5,6,7), listOf(Period("PERIOD-0105-3009" + "-" + journeyName, 1, 5, 30, 9)), listOf(5,6,7,8,9), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
+                Schedule("SCH43" + "-" + journeyName, listOf(1,2,3,4,5,6), listOf(Period("PERIOD-0110-3004" + "-" + journeyName, 1, 10, 30, 4)), listOf(1,2,3,4,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
             )
             "S+1,2,3,4,5,p+15/09-31/12;S+1,2,3,4,5,p+01/02-15/05;" -> listOf(
-                Schedule("SCH32", listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112", 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
-                Schedule("SCH28", listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505", 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S")
+                Schedule("SCH32" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-1509-3112" + "-" + journeyName, 15, 9, 31, 12)), listOf(9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S"),
+                Schedule("SCH28" + "-" + journeyName, listOf(1,2,3,4,5), listOf(Period("PERIOD-0102-1505" + "-" + journeyName, 1, 2, 15, 5)), listOf(2,3,4,5), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell, "S")
             )
             //else -> Schedule("SCH99ED", listOf(1,2,3,4,5,6,7), listOf(Period("NON-STOP", 1, 1, 31, 12)), listOf(1,2,3,4,5,6,7,8,9,10,11,12), true, scheduleCell.trim(), scheduleDescriptionCell, scheduleDescriptionCell)
             else -> createSchedulesBasedOnTripNumberForJourney(scheduleCell, scheduleDescriptionCell, journeyName)
@@ -753,7 +795,7 @@ class AvtobuskiLiniiTest() {
                         workMonths.add(tm)
                     }
                 }
-                val schedule = Schedule(journeyName + tripNumber, workDays, listOf(Period("PERIOD-$fromDay$fromMonth-$toDay$toMonth", fromDay, fromMonth, toDay, toMonth)), workMonths, holiday, sch, scheduleDescriptionCell, scheduleDescriptionCell, tripNumber.toString())
+                val schedule = Schedule(journeyName + tripNumber, workDays, listOf(Period("PERIOD-$fromDay$fromMonth-$toDay$toMonth-"+journeyName + tripNumber , fromDay, fromMonth, toDay, toMonth)), workMonths, holiday, sch, scheduleDescriptionCell, scheduleDescriptionCell, tripNumber.toString())
                 resultSchedules.add(schedule)
             }
         }
@@ -761,9 +803,9 @@ class AvtobuskiLiniiTest() {
         if(resultSchedules.isEmpty()) {
             return listOf(
                 Schedule(
-                    "SCH04",
+                    "SCH04-" + journeyName + tripNumber,
                     listOf(1, 2, 3, 4, 5, 6, 7),
-                    listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)),
+                    listOf(Period("PERIOD-0101-3112" + journeyName + tripNumber, 1, 1, 31, 12)),
                     listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
                     true,
                     scheduleCell.trim(),
@@ -817,16 +859,16 @@ class AvtobuskiLiniiTest() {
                     workMonths.add(tm)
                 }
             }
-            val schedule = Schedule(journeyName + tripNumbers.joinToString("-"), workDays, listOf(Period("PERIOD-$fromDay$fromMonth-$toDay$toMonth", fromDay, fromMonth, toDay, toMonth)), workMonths, holiday, sch, scheduleDescriptionCell, scheduleDescriptionCell, tripNumbers.joinToString(","))
+            val schedule = Schedule(journeyName + tripNumbers.joinToString("-"), workDays, listOf(Period("PERIOD-$fromDay$fromMonth-$toDay$toMonth" + journeyName, fromDay, fromMonth, toDay, toMonth)), workMonths, holiday, sch, scheduleDescriptionCell, scheduleDescriptionCell, tripNumbers.joinToString(","))
             resultSchedules.add(schedule)
         }
 
         if(resultSchedules.isEmpty()) {
             return listOf(
                 Schedule(
-                    "SCH04",
+                    "SCH04-" + journeyName,
                     listOf(1, 2, 3, 4, 5, 6, 7),
-                    listOf(Period("PERIOD-0101-3112", 1, 1, 31, 12)),
+                    listOf(Period("PERIOD-0101-3112" + journeyName, 1, 1, 31, 12)),
                     listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
                     true,
                     scheduleCell.trim(),
