@@ -25,3 +25,8 @@ Local build and run without IDE:
     CREATE INDEX FOR (n:Station) ON (n.name);
     CREATE INDEX FOR (n:Stop) ON (n.name);
     CREATE INDEX FOR (n:Trip) ON (n.name);
+
+## Time spend
+
+    23:26:09.463605: finish reading file files/avtobuski-linii-nice.xls
+    Time spent is 00:35:39.255943
